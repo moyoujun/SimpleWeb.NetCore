@@ -88,18 +88,33 @@
 <script lang="ts">
 import { defineComponent, ref } from "vue";
 import axios from "axios";
+import { useStore } from "vuex";
+import { IGlobalDataProps } from "@/Interfaces/IColumnProps";
+import { useRouter } from "vue-router";
 
 export default defineComponent({
   setup() {
+    const store = useStore<IGlobalDataProps>();
+    const router = useRouter();
+
     const email = ref<string>();
     const password = ref<string>();
 
     const onLoginFomSubmit = async () => {
-      const response = await axios.post("/api/Account/Login", {
-        email: email.value,
-        password: password.value,
-      });
-      alert("Hello!" + response);
+      try {
+        const response = await axios.post("/api/Account/Login", {
+          email: email.value,
+          password: password.value,
+        });
+        store.commit("Login", response.data);
+        if (store.state.user.isAuth) {
+          router.push("/");
+        } else {
+          alert("用户名或者密码错误，请重新输入。");
+        }
+      } catch {
+        alert("服务器异常，请稍后重试！");
+      }
     };
 
     return {

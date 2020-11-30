@@ -3,6 +3,7 @@
     <router-view />
   </div>
 </template>
+
 <style lang="postcss">
 @tailwind base;
 @tailwind components;

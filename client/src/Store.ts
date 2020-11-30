@@ -1,29 +1,27 @@
 import { createStore } from "vuex";
-import { columns } from "./test/datas";
-import { IAppUserProps } from "./Interfaces/IColumnProps";
+import { AppUserProps } from "./Interfaces/IColumnProps";
 import { IGlobalDataProps } from "./Interfaces/IColumnProps";
 
-export const MUTATIONS_METHOD = {
-  FETCH_ALL_COLUMNS: "fetchAllColumns",
-};
-
-const user: IAppUserProps = {
-  isAuth: false,
-  tokenPayload: "",
-  userToken: "",
-};
+const user = localStorage.getItem("user");
 
 const state: IGlobalDataProps = {
   columns: [],
-  user: user,
+  user: user
+    ? JSON.parse(user)
+    : {
+        isAuth: false,
+        tokenPayload: "",
+        name: "",
+      },
 };
 
 const store = createStore<IGlobalDataProps>({
   state: state,
 
   mutations: {
-    [MUTATIONS_METHOD.FETCH_ALL_COLUMNS](state) {
-      state.columns = columns;
+    Login(state, response) {
+      state.user = new AppUserProps(response);
+      localStorage.setItem("user", JSON.stringify(state.user));
     },
   },
 });

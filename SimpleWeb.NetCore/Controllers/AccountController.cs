@@ -62,7 +62,7 @@ namespace SimpleWeb.NetCore.Controllers
                 };
             }
 
-            HttpContext.Response.StatusCode = (int)System.Net.HttpStatusCode.Unauthorized;
+            //HttpContext.Response.StatusCode = (int)System.Net.HttpStatusCode.Unauthorized;
 
             return new Dto.JsonResponseModel<JsonWebTokenModal>
             {
