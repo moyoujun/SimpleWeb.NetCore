@@ -43,11 +43,8 @@ namespace SimpleWeb.NetCore.Models
                 var superuser = new IdentityUser()
                 {
                     Email = "moyoujun00@qq.com",
-                    UserName = "test01"
+                    UserName = "youjun.mo"
                 };
-
-                var user = await _userManager.FindByEmailAsync("490076772@qq.com");
-                await _userManager.DeleteAsync(user);
 
                 await _userManager.CreateAsync(superuser, "moyoujun00.QQ.com");
 
