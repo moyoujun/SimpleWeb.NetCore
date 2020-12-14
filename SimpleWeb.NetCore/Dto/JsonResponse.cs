@@ -58,6 +58,8 @@ namespace SimpleWeb.NetCore.Dto
         /// <summary>
         /// IDNotFound
         /// </summary>
-        IDNotFound = 4
+        IDNotFound = 4,
+
+        AccountError = 5,
     }
 }

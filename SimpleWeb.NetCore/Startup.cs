@@ -31,7 +31,6 @@ namespace SimpleWeb.NetCore
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
-            services.AddCors();
             services.AddDbContext<Models.ApplicationDbContext>(options => options.UseMySQL(Configuration.GetConnectionString("AppDb")));
             services.AddDbContext<Models.ApplicationUserDbContext>(options => options.UseMySQL(Configuration.GetConnectionString("AppUserDb")));
             services.AddApiVersioning(
@@ -51,7 +50,7 @@ namespace SimpleWeb.NetCore
                 options.DocInclusionPredicate((docName, apiDesc) =>
                 {
                     var versions = apiDesc.CustomAttributes()
-                        .OfType<Microsoft.AspNetCore.Mvc.ApiVersionAttribute>()
+                        .OfType<ApiVersionAttribute>()
                         .SelectMany(attr => attr.Versions);
 
                     return versions.Any(v => $"v{v}" == docName);
@@ -89,7 +88,12 @@ namespace SimpleWeb.NetCore
                 options.AddSecurityRequirement(requirement);
             });
 
-            services.AddIdentity<IdentityUser, IdentityRole>().AddEntityFrameworkStores<Models.ApplicationUserDbContext>().AddDefaultTokenProviders();
+            services.AddIdentity<IdentityUser, IdentityRole>(
+                config =>
+                {
+                    config.SignIn.RequireConfirmedEmail = true;
+                    config.User.RequireUniqueEmail = true;
+                }).AddEntityFrameworkStores<Models.ApplicationUserDbContext>().AddDefaultTokenProviders();
 
 
             services.AddAuthentication(options =>
@@ -117,8 +121,6 @@ namespace SimpleWeb.NetCore
 
 
             services.AddScoped<IAuthorizationHandler, Auth.AuthorizationBaseOnRolesHandler>();
-            services.AddScoped<Services.EmailService>();
-
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

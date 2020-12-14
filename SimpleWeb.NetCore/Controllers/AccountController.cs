@@ -5,6 +5,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -25,30 +26,49 @@ namespace SimpleWeb.NetCore.Controllers
         private readonly SignInManager<IdentityUser> _signInManager;
         private readonly UserManager<IdentityUser> _userManager;
         private readonly IConfiguration _configuration;
-        private readonly EmailService _emailService;
 
         public AccountController(
             UserManager<IdentityUser> userManager,
             SignInManager<IdentityUser> signInManager,
-            IConfiguration configuration,
-            EmailService emailService
-
+            IConfiguration configuration
             ) 
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _configuration = configuration;
-            _emailService = emailService;
         }
 
         [HttpPost("Login")]
         public async Task<Dto.JsonResponseModel<JsonWebTokenModal>> Login(LoginDto model)
         {
+            var checkService = new SignatureCheckService(_configuration);
+            if (!checkService.Verify(Request.Headers, model))
+            {
+                return new Dto.JsonResponseModel<JsonWebTokenModal>
+                {
+                    Data = null,
+                    Msg = "Signature error",
+                    Status = Dto.JsonResponseStatus.AuthFail
+                };
+            }
+
+
             var appUser = _userManager.Users.SingleOrDefault(r => r.Email == model.Email);
             var result = await _signInManager.PasswordSignInAsync(appUser, model.Password, false, false);
 
             if (result.Succeeded)
             {
+                if (!appUser.EmailConfirmed)
+                {
+                    return new Dto.JsonResponseModel<JsonWebTokenModal>
+                    {
+                        Data = null,
+                        Msg = "Account is not actived",
+                        Status = Dto.JsonResponseStatus.AccountError
+                    };
+                }
+
+
                 HttpContext.Response.StatusCode = (int)System.Net.HttpStatusCode.OK;
 
                 return new Dto.JsonResponseModel<JsonWebTokenModal> { 
@@ -75,11 +95,40 @@ namespace SimpleWeb.NetCore.Controllers
         [HttpPost("Register")]
         public async Task<Dto.JsonResponseModel> Register(RegisterDto model)
         {
+            var checkService = new SignatureCheckService(_configuration);
+            if (!checkService.Verify(Request.Headers, model))
+            {
+                return new Dto.JsonResponseModel<Dto.JsonResponseModel>
+                {
+                    Data = null,
+                    Msg = "Signature error",
+                    Status = Dto.JsonResponseStatus.AuthFail
+                };
+            }
+
             var user = new IdentityUser
             {
                 UserName = model.Name,
                 Email = model.Email
             };
+
+            if (_userManager.Users.FirstOrDefault(o => o.Email == user.Email) != null )
+            {
+                return new Dto.JsonResponseModel
+                {   Msg= "email depulicated",
+                    Status = Dto.JsonResponseStatus.RequestError
+                };
+            }
+
+            if (_userManager.Users.FirstOrDefault(o => o.UserName == user.UserName) != null)
+            {
+                return new Dto.JsonResponseModel
+                {
+                    Msg = "name depulicated",
+                    Status = Dto.JsonResponseStatus.RequestError
+                };
+            }
+
             var result = await _userManager.CreateAsync(user, model.Password);
 
             if (result.Succeeded)
@@ -90,33 +139,20 @@ namespace SimpleWeb.NetCore.Controllers
                 var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
 
                 // generate url
-                var callbackUrl = Url.ActionLink("Confirm", "Account", new RouteValueDictionary { { "id", user.Id }, { "token",  token}, { "callbackUrl", model.ReturnUrl } }, "http");
+                var callbackUrl = Url.ActionLink("Confirm", "Account", new RouteValueDictionary { { "id", user.Id }, { "token", token } }, "http");
+                var emailService = new EmailService(_configuration);
 
-                var sendResult = await _emailService.SendConfirmEmail(user, callbackUrl);
+                emailService.SendConfirmEmail(user, callbackUrl);
 
-                if (sendResult)
+                return new Dto.JsonResponseModel
                 {
-                    return new Dto.JsonResponseModel
-                    {
-                        Msg = $"Need confirm the email address",
-                        Status = Dto.JsonResponseStatus.Success
-                    };
-                }
-
-                else
-                {
-                    return new Dto.JsonResponseModel<string>
-                    {
-                        Msg = $"Need confirm the email address, but the email is not sending correctly",
-                        Status = Dto.JsonResponseStatus.Success,
-                    };
-                }
+                    Msg = $"Need confirm the email address",
+                    Status = Dto.JsonResponseStatus.Success
+                };
             }
-
-            HttpContext.Response.StatusCode = (int)System.Net.HttpStatusCode.BadRequest;
             return new Dto.JsonResponseModel
             {
-                Msg = $"Register failed, {result.Errors}",
+                Msg = $"Register failed, {result.Errors.First().Description}",
                 Status = Dto.JsonResponseStatus.RequestError
             };
         }
@@ -124,19 +160,15 @@ namespace SimpleWeb.NetCore.Controllers
 
 
         [HttpGet("ConfirmEmail")]
-        public async Task<object> Confirm(string id, string token, string callbackUrl)
+        public async Task<IActionResult> Confirm(string id, string token)
         {
+            string url = _configuration["ClientHomePage"];
+
+
             if (id == null || token == null)
             {
                 HttpContext.Response.StatusCode = (int)System.Net.HttpStatusCode.BadRequest;
-
-                //return new Dto.JsonResponseModel
-                //{
-                //    Msg = "arguments error",
-                //    Status = Dto.JsonResponseStatus.RequestError
-                //};
-
-                return Redirect(callbackUrl + "/?success=false");
+                return Redirect($"{url}/Error/404");
             }
 
             var user = await _userManager.FindByIdAsync(id);
@@ -145,13 +177,7 @@ namespace SimpleWeb.NetCore.Controllers
             {
                 HttpContext.Response.StatusCode = (int)System.Net.HttpStatusCode.NotFound;
 
-                //return new Dto.JsonResponseModel
-                //{
-                //    Msg = "user id not exist in current environment",
-                //    Status = Dto.JsonResponseStatus.IDNotFound
-                //};
-
-                return Redirect(callbackUrl + "/?success=false");
+                return Redirect($"{url}/Error/404");
             }
 
             var result = await _userManager.ConfirmEmailAsync(user, token);
@@ -160,21 +186,17 @@ namespace SimpleWeb.NetCore.Controllers
             {
                 HttpContext.Response.StatusCode = (int)System.Net.HttpStatusCode.OK;
 
-                /*
-                return new ContentResult
-                {
-                    ContentType = "text/html",
-                    Content = "<div>Your email has been validated, go back to your login page click here" +
-                    $"<div><a href=\"{callbackUrl}\">{callbackUrl}</a></div>" +
-                    "</div>"
-                };
-                */
-
-                return Redirect(callbackUrl+"/?success=true");
+                return Redirect(url);
             }
 
+            return Redirect($"{url}/Error/404");
+        }
 
-            return Redirect(callbackUrl + "/?success=false");
+        [Authorize]
+        [HttpGet("is_auth")]
+        public bool IsAuthorizedToken()
+        {
+            return true;
         }
 
         private string GenerateJwtToken(string email, IdentityUser user)
@@ -209,6 +231,11 @@ namespace SimpleWeb.NetCore.Controllers
             [Required]
             public string Password { get; set; }
 
+            public override string ToString()
+            {
+                return Email + "." + Password;
+            }
+
         }
 
         public class ConfirmModel
@@ -230,7 +257,10 @@ namespace SimpleWeb.NetCore.Controllers
             [StringLength(100, ErrorMessage = "PASSWORD_MIN_LENGTH", MinimumLength = 6)]
             public string Password { get; set; }
 
-            public string ReturnUrl { get; set; }
+            public override string ToString()
+            {
+                return Email + "." + Password;
+            }
         }
 
         public class JsonWebTokenModal

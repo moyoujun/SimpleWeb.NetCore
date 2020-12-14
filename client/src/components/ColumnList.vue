@@ -17,12 +17,11 @@
 
 <script lang="ts">
 import { computed, defineComponent, PropType } from "vue";
-import { IColumnProps } from "../Interfaces/IColumnProps";
 
 export default defineComponent({
   props: {
     list: {
-      type: Array as PropType<IColumnProps[]>,
+      type: Array,
       required: true,
     },
   },

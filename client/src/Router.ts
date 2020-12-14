@@ -1,31 +1,84 @@
-import { createRouter, createWebHistory } from "vue-router";
-const routes = createRouter({
-  history: createWebHistory(),
-  routes: [
-    {
-      path: "/",
-      component: () => import("./components/Home.vue"),
-    },
+import {
+  createRouter,
+  createWebHistory,
+  NavigationGuardNext,
+  RouteLocationNormalized,
+  Router,
+} from "vue-router";
+import { useStore } from './Stores/Store';
 
-    {
-      path: "/accounts/Login",
-      component: () => import("./components/Accounts/Login.vue"),
-    },
-  ],
-});
+export async function createRoutes(): Promise<Router> {
+  let routes = createRouter({
+    history: createWebHistory(),
+    routes: [
+      {
+        path: "/",
+        meta: {
+          authRequired: true
+        },
+        component: () => import("./components/Home.vue"),
+      },
 
-routes.beforeEach((to, from, next) => {
-  // redirect to login page if not logged in and trying to access a restricted page
-  const publicPages = ["/accounts/Login"];
+      {
+        path: "/accounts/login",
+        meta: {
+          authRequired: false
+        },
+        component: () => import("./components/Accounts/Login.vue"),
+      },
 
-  const authRequired = !publicPages.includes(to.path);
-  const loggedIn = localStorage.getItem("user");
+      {
+        path: "/accounts/register",
+        meta: {
+          authRequired: false
+        },
+        component: () => import("./components/Accounts/Register.vue"),
+      },
 
-  if (authRequired && !loggedIn) {
-    return next("/accounts/Login");
+      {
+        path: "/error/404",
+        meta: {
+          authRequired: false
+        },
+        component: () => import("./components/Error/404.vue"),
+      }
+    ],
+  });
+
+  await useStore().action.checkStoredToken();
+
+  routes.beforeEach(routesBeforeHandler);
+
+  return routes;
+}
+
+function routesBeforeHandler(
+  to: RouteLocationNormalized,
+  from: RouteLocationNormalized,
+  next: NavigationGuardNext
+) {
+
+  let loginPage = "/accounts/login";
+
+  if (to.matched.length === 0) {
+    next({ path: '/error/404' });
+    return;
   }
 
-  next();
-});
 
-export default routes;
+  let authRequired = to.meta.authRequired;
+  let loggedIn = useStore().state.user.isAuth;
+
+  if (to.path === loginPage && loggedIn) {
+    // already logged in, redirect the route to home page.
+    next("/");
+  }
+
+  else if (authRequired && !loggedIn) {
+    next(loginPage);
+  }
+  else {
+    next();
+  }
+}
+

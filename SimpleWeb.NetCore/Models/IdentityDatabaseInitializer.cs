@@ -19,7 +19,7 @@ namespace SimpleWeb.NetCore.Models
         }
 
 
-        public void InitialUserAndRoles()
+        public async Task InitialUserAndRoles()
         {
             const string SUPER_USER = "superuser";
             const string ADMINISTRATOR = "administrator";
@@ -30,22 +30,34 @@ namespace SimpleWeb.NetCore.Models
                 SUPER_USER, ADMINISTRATOR, NORMA_USER
             };
 
-            foreach (var role in roleList)
+            try
             {
-                if (!_roleManager.Roles.Any(o => o.Name == role))
+                foreach (var role in roleList)
                 {
-                    _roleManager.CreateAsync(new IdentityRole(role));
+                    if (!_roleManager.Roles.Any(o => o.Name == role))
+                    {
+                        var t1 = _roleManager.CreateAsync(new IdentityRole(role));
+                    }
                 }
+
+                var superuser = new IdentityUser()
+                {
+                    Email = "moyoujun00@qq.com",
+                    UserName = "test01"
+                };
+
+                var user = await _userManager.FindByEmailAsync("490076772@qq.com");
+                await _userManager.DeleteAsync(user);
+
+                await _userManager.CreateAsync(superuser, "moyoujun00.QQ.com");
+
+                _userManager.Users.Single(o => o.Email == superuser.Email).EmailConfirmed = true;
+                var t = _userManager.AddToRoleAsync(superuser, SUPER_USER);
             }
-
-            var superuser = new IdentityUser()
-            { 
-                Email = "moyoujun00@qq.com",
-                UserName = "test01"
-            };
-
-            _userManager.CreateAsync(superuser, "moyoujun00.QQ.com");
-            _userManager.AddToRoleAsync(superuser, SUPER_USER);
+            catch (Exception ex)
+            {
+               //
+            }
         }
 
     }

@@ -29,7 +29,7 @@ namespace SimpleWeb.NetCore
                 var userManager = serviceScope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
                 var roleManager = serviceScope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
-                new Models.IdentityDatabaseInitializer(userManager,roleManager).InitialUserAndRoles();
+                var t = new Models.IdentityDatabaseInitializer(userManager,roleManager).InitialUserAndRoles();
             }
 
             host.Run();

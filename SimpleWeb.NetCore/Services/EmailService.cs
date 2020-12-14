@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,17 +12,21 @@ namespace SimpleWeb.NetCore.Services
     {
         System.Net.Mail.SmtpClient client;
 
-        public EmailService()
+
+        public EmailService(IConfiguration configuration)
         {
             client = new System.Net.Mail.SmtpClient();
-            client.Host = "localhost";
+            client.Host = "smtp.qq.com";
 
             //设置是否需要发送是否需要身份验证，如果不需要下面的credentials是不需要的
             client.UseDefaultCredentials = false;
+
+            client.Credentials  = new System.Net.NetworkCredential(configuration["Email:Name"], configuration["Email:Key"]);
+            client.Port = 587;
         }
 
 
-        public async Task<bool> SendConfirmEmail(IdentityUser user, string url)
+        public bool SendConfirmEmail(IdentityUser user, string url)
         {
             try
             {
@@ -39,9 +44,9 @@ namespace SimpleWeb.NetCore.Services
                 System.Net.Mail.MailMessage Message = new System.Net.Mail.MailMessage();
 
                 //发件人地址
-                Message.From = new System.Net.Mail.MailAddress("no-reply@locahost");
+                Message.From = new System.Net.Mail.MailAddress("moyoujun00@qq.com");
 
-                //将邮件发送给管理员
+                //将邮件发送给用户
                 Message.To.Add(user.Email);
 
                 //邮件主题
@@ -63,7 +68,7 @@ namespace SimpleWeb.NetCore.Services
                 Message.IsBodyHtml = true;
 
                 //发送邮件
-                await client.SendMailAsync(Message);
+                client.SendMailAsync(Message);
 
                 return true;
             }
