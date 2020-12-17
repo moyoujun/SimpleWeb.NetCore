@@ -1,6 +1,8 @@
 bin/
 obj/
+out/
 mysql/
 Migrations/
 .vs/
 .vscode/
+appsettings.json
